@@ -11,13 +11,11 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 
-/**
- * Created by dhruv on 4/12/14.
- */
 public class UseAsyncTask extends AsyncTask<String, Void, String> {
 
     private String pageUrl;
     private Activity activity;
+    private String result;
 
     UseAsyncTask(String url, Activity thisActivity) {
         pageUrl = url;
@@ -32,6 +30,11 @@ public class UseAsyncTask extends AsyncTask<String, Void, String> {
             e.printStackTrace();
             return null;
         }
+    }
+
+    @Override
+    protected void onPostExecute(String s) {
+        //  do nothing
     }
 
     public String getAsyncResults(String pageUrl) throws IOException {
@@ -51,11 +54,10 @@ public class UseAsyncTask extends AsyncTask<String, Void, String> {
         conn.setDoOutput(true);
 
         InputStream is = conn.getInputStream();
-        String result = readStream(is);
+        result = readStream(is);
 
         if(result.equals(""))
             return "No response";
-
         return result;
     }
 

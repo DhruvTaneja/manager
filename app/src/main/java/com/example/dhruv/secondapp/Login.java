@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
@@ -19,20 +20,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigInteger;
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
-import java.net.CookieStore;
-import java.net.HttpCookie;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 public class Login extends Activity {
 
@@ -43,6 +39,26 @@ public class Login extends Activity {
 
         Button button = (Button) findViewById(R.id.login_button);
         Button announcements = (Button) findViewById(R.id.button_announcements);
+
+        /*
+        Shared preferences are used to check if the application
+        is running for the first time
+        */
+
+        SharedPreferences sharedPreferences = getSharedPreferences("secondApp", MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        if(sharedPreferences.getBoolean("firstrun", false))
+            Log.d("PREFS", "getboolean - firstrun - true");
+        else
+            Log.d("PREFS", "no");
+        Boolean firstRun = sharedPreferences.getBoolean("firstrun", true);
+        if(firstRun) {
+            Log.d("RUN", "Running for the first time");
+            editor.putBoolean("firstrun", false);
+            editor.commit();
+        }
+        else
+            Log.d("RUN", "Been there, done that");
 
         button.setOnClickListener(new View.OnClickListener() {
 
@@ -118,8 +134,11 @@ public class Login extends Activity {
                     int index_strong = lines[i + 1].indexOf("strong");
                     int index_strong_close = lines[i + 1].indexOf("</strong>");
                     int title_index = index_strong + 7;
-                    if(lines[i + 1].charAt(72) == '<')  //  some titles have header tags, a jump of 4 skips those tags
+                    if(lines[i + 1].charAt(72) == '<') {  //  some titles have header tags, a jump of 4 skips those tags
                         title_index += 4;
+                    }
+                    if(lines[i + 1].charAt(index_strong_close - 1) == '>')
+                        index_strong_close -= 5;
                     String title = lines[i + 1].substring(title_index, index_strong_close);
                     Log.d("COMPANY", title);
                 }
@@ -127,15 +146,42 @@ public class Login extends Activity {
             return result;
         }
 
-        public void onPostExecute(String result) {
+        public void onPostExecute(final String result) {
 //            Toast.makeText(Login.this, result, Toast.LENGTH_LONG).show();
             final AlertDialog.Builder builder = new AlertDialog.Builder(Login.this);
             builder.setMessage(result)
                     .setTitle("Response text")
-                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    .setNegativeButton("OK", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
                             dialogInterface.cancel();
+                        }
+                    })
+                    .setPositiveButton("Next", new DialogInterface.OnClickListener() {
+
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            String[] lines = result.split("\n");
+                            for(i = 0; i < lines.length; i++) {
+                                if(lines[i].contains(">Next")) {
+                                    int link_index = lines[i].indexOf("href") + 6;
+                                    int link_index_end = lines[i].indexOf("Next") - 2;
+                                    String subString = lines[i].substring(link_index, link_index_end);
+                                    String nextUrl = "http://www.dce.ac.in" + subString;
+                                    String nextResult = "Nothing";
+                                    UseAsyncTask useAsyncTask = new UseAsyncTask(nextUrl, Login.this);
+                                    try {
+                                        nextResult = useAsyncTask.execute().get();
+                                    } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    } catch (ExecutionException e) {
+                                        e.printStackTrace();
+                                    }
+                                    builder.setMessage(nextResult)
+                                            .create()
+                                            .show();
+                                }
+                            }
                         }
                     });
             AlertDialog dialog = builder.create();
@@ -163,20 +209,6 @@ public class Login extends Activity {
         }
 
         return super.onOptionsItemSelected(item);
-    }
-
-    public String getMD5(String pass) throws NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("MD5");
-        md.reset();
-        md.update(pass.getBytes());
-        byte[] digested = md.digest();
-        BigInteger bigInteger = new BigInteger(1, digested);
-        String hashText = bigInteger.toString(16);
-        while (hashText.length() < 32) {
-            hashText = "0" + hashText;
-        }
-
-        return hashText;
     }
 
     public String readStream(InputStream is) {
@@ -231,9 +263,27 @@ public class Login extends Activity {
 
             InputStream is = null;
             String uname = "2K11/IT/026";
-            String pass = getMD5("saddahaqq101");
+            String password = "saddahaqq101";
+            String pass = new Algorithm(password).getMD5();
+            String urlParams = null;
             String loginUrl = "http://www.dce.ac.in/placement/student_login.php";
-            String urlParams = "txtUsername=" + uname + "&txtPassword=" + pass + "&Submit=Login";
+
+            /*
+            Using shared preferences to store the URL parameters
+            to store the username and password altogether
+            */
+            SharedPreferences sharedPreferences = getSharedPreferences("secondApp", MODE_PRIVATE);
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            if(sharedPreferences.getString("urlParams", "not present").equals("not present")) {
+                urlParams = "txtUsername=" + uname + "&txtPassword=" + pass + "&Submit=Login";
+                Log.d("PREFS", "was not present in the sharedprefs");
+                editor.putString("urlParams", urlParams);
+                editor.commit();
+            }
+            else {
+                Log.d("PREFS", "is present in the sharedprefs");
+                urlParams = sharedPreferences.getString("urlParams", "");
+            }
 
             URL url = new URL(loginUrl);
 
@@ -258,9 +308,11 @@ public class Login extends Activity {
 
             is = conn.getInputStream();
             String result;
+            /*
             CookieStore cookieStore = cookieManager.getCookieStore();
             List<HttpCookie> list = cookieStore.get(new URI(loginUrl));
-//            HttpCookie cookie = list.get(0);
+            HttpCookie cookie = list.get(0);
+            */
             if(conn.getURL().getPath().equals("/placement/student_login.php"))
                 result = "Login failed";
             else if(conn.getURL().getPath().equals("/placement/announcements.php"))
