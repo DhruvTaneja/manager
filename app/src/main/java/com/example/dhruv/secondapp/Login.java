@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -17,18 +18,11 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.CookieHandler;
-import java.net.CookieManager;
-import java.net.CookiePolicy;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.security.NoSuchAlgorithmException;
-import java.util.concurrent.ExecutionException;
 
 public class Login extends Activity {
 
@@ -37,14 +31,13 @@ public class Login extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.login);
 
-        Button button = (Button) findViewById(R.id.login_button);
+        Button login_button = (Button) findViewById(R.id.login_button);
         Button announcements = (Button) findViewById(R.id.button_announcements);
 
         /*
         Shared preferences are used to check if the application
         is running for the first time
         */
-
         SharedPreferences sharedPreferences = getSharedPreferences("secondApp", MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         if(sharedPreferences.getBoolean("firstrun", false))
@@ -60,12 +53,12 @@ public class Login extends Activity {
         else
             Log.d("RUN", "Been there, done that");
 
-        button.setOnClickListener(new View.OnClickListener() {
+        login_button.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
                 // TODO Auto-generated method stub
-                createConnection(v);
+                createConnection();
             }
         });
 
@@ -74,12 +67,12 @@ public class Login extends Activity {
             @Override
             public void onClick(View v) {
                 // TODO Auto-generated method stub
-                watchAnnouncements(v);
+                watchAnnouncements();
             }
         });
     }
 
-    private void watchAnnouncements(View view) {
+    private void watchAnnouncements() {
         ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
 
@@ -127,9 +120,11 @@ public class Login extends Activity {
             String[] lines = result.split("\n");
 
             for (int i = 0; i < lines.length; i++) {
-                //  "contentTextTitle2" is the class name of the tr tags which contain the
-                //  announcement titles and dates. The line following the tr tag with this
-                //  class name contains title of the announcement
+                /*
+                "contentTextTitle2" is the class name of the tr tags which contain the
+                announcement titles and dates. The line following the tr tag with this
+                class name contains title of the announcement
+                */
                 if (lines[i].contains("contentTextTitle2") && lines[i + 1].contains("strong")) {    //  to filter the 1st 4 irrelevant data under the cTT2 class
                     int index_strong = lines[i + 1].indexOf("strong");
                     int index_strong_close = lines[i + 1].indexOf("</strong>");
@@ -146,46 +141,29 @@ public class Login extends Activity {
             return result;
         }
 
-        public void onPostExecute(final String result) {
-//            Toast.makeText(Login.this, result, Toast.LENGTH_LONG).show();
-            final AlertDialog.Builder builder = new AlertDialog.Builder(Login.this);
+        @Override
+        protected void onPostExecute(String result) {
+            Intent intent = new Intent();
+
+//            CookieManager cookieManager = new CookieManager();
+//            cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
+//            CookieHandler.setDefault(cookieManager);
+//
+//            CookieStore cookieStore = cookieManager.getCookieStore();
+//            List<HttpCookie> cookieList = cookieStore.getCookies();
+
+//            Log.d("LIST", String.valueOf(cookieList));
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(Login.this);
             builder.setMessage(result)
-                    .setTitle("Response text")
-                    .setNegativeButton("OK", new DialogInterface.OnClickListener() {
+                    .setTitle("Result")
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
                             dialogInterface.cancel();
                         }
-                    })
-                    .setPositiveButton("Next", new DialogInterface.OnClickListener() {
-
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            String[] lines = result.split("\n");
-                            for(i = 0; i < lines.length; i++) {
-                                if(lines[i].contains(">Next")) {
-                                    int link_index = lines[i].indexOf("href") + 6;
-                                    int link_index_end = lines[i].indexOf("Next") - 2;
-                                    String subString = lines[i].substring(link_index, link_index_end);
-                                    String nextUrl = "http://www.dce.ac.in" + subString;
-                                    String nextResult = "Nothing";
-                                    UseAsyncTask useAsyncTask = new UseAsyncTask(nextUrl, Login.this);
-                                    try {
-                                        nextResult = useAsyncTask.execute().get();
-                                    } catch (InterruptedException e) {
-                                        e.printStackTrace();
-                                    } catch (ExecutionException e) {
-                                        e.printStackTrace();
-                                    }
-                                    builder.setMessage(nextResult)
-                                            .create()
-                                            .show();
-                                }
-                            }
-                        }
                     });
-            AlertDialog dialog = builder.create();
-            builder.show();
+            builder.create().show();
         }
     }
 
@@ -198,9 +176,11 @@ public class Login extends Activity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
+        /*
+        Handle action bar item clicks here. The action bar will
+        automatically handle clicks on the Home/Up button, so long
+        as you specify a parent activity in AndroidManifest.xml.
+        */
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
@@ -225,101 +205,14 @@ public class Login extends Activity {
         }
     }
 
-    public void createConnection(View view) {
+    private void createConnection() {
         ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
 
-        if(networkInfo != null && networkInfo.isConnected())
-            new WebLogin().execute();
+        if(networkInfo != null && networkInfo.isConnected()) {
+            new WebLogin(Login.this).execute();
+        }
         else
             Toast.makeText(Login.this, "Connection not available", Toast.LENGTH_LONG).show();
-    }
-
-    public class WebLogin extends AsyncTask<String, Void, String> {
-
-        @Override
-        protected String doInBackground(String... strings) {
-            try {
-                return downloadUrl();
-            } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (URISyntaxException e) {
-                e.printStackTrace();
-            }
-            return null;
-        }
-
-        protected void onPostExecute(String result) {
-            Toast.makeText(Login.this, result, Toast.LENGTH_LONG).show();
-        }
-
-        private String downloadUrl() throws NoSuchAlgorithmException, IOException, URISyntaxException {
-
-            CookieManager cookieManager = new CookieManager();
-            cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
-            CookieHandler.setDefault(cookieManager);
-
-            InputStream is = null;
-            String uname = "2K11/IT/026";
-            String password = "saddahaqq101";
-            String pass = new Algorithm(password).getMD5();
-            String urlParams = null;
-            String loginUrl = "http://www.dce.ac.in/placement/student_login.php";
-
-            /*
-            Using shared preferences to store the URL parameters
-            to store the username and password altogether
-            */
-            SharedPreferences sharedPreferences = getSharedPreferences("secondApp", MODE_PRIVATE);
-            SharedPreferences.Editor editor = sharedPreferences.edit();
-            if(sharedPreferences.getString("urlParams", "not present").equals("not present")) {
-                urlParams = "txtUsername=" + uname + "&txtPassword=" + pass + "&Submit=Login";
-                Log.d("PREFS", "was not present in the sharedprefs");
-                editor.putString("urlParams", urlParams);
-                editor.commit();
-            }
-            else {
-                Log.d("PREFS", "is present in the sharedprefs");
-                urlParams = sharedPreferences.getString("urlParams", "");
-            }
-
-            URL url = new URL(loginUrl);
-
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setConnectTimeout(10000);
-            conn.setReadTimeout(10000);
-            conn.setRequestMethod("POST");
-            conn.setDoInput(true);
-            conn.setDoOutput(true);
-
-            //  headers of the POST request
-            conn.setRequestProperty("Connection", "keep-alive");
-            conn.setRequestProperty("Content-type", "application/x-www-form-urlencoded");
-            conn.setRequestProperty("Accept-encoding", "gzip, deflate");
-
-            //  Writing the urlParams to the output stream
-            //  to the POST request
-            DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
-            wr.writeBytes(urlParams);
-            wr.flush();
-            wr.close();
-
-            is = conn.getInputStream();
-            String result;
-            /*
-            CookieStore cookieStore = cookieManager.getCookieStore();
-            List<HttpCookie> list = cookieStore.get(new URI(loginUrl));
-            HttpCookie cookie = list.get(0);
-            */
-            if(conn.getURL().getPath().equals("/placement/student_login.php"))
-                result = "Login failed";
-            else if(conn.getURL().getPath().equals("/placement/announcements.php"))
-                result = "Login Successful";
-            else
-                result = conn.getURL().getPath();
-            return result;
-        }
     }
 }
