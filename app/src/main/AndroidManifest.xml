@@ -19,10 +19,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".Announcement"
-            android:label="@string/title_activity_announcement" >
-        </activity>
     </application>
 
 </manifest>
