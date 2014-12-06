@@ -1,7 +1,18 @@
-package com.example.dhruv.secondapp;
+package getdata;
 
 /**
  * Created by dhruv on 5/12/14.
+ *
+ * This class is used to fetch the URLs present
+ * in the response text. It takes response text
+ * as input. The getters available in the class are
+ *
+ *  getLastLink -   to get the link of the Last page of the
+ *                  paginated pages
+ *
+ *  getPreviousLink to get the link of the Previous page
+ *                  of the paginated pages
+ *
  */
 public class GetLinks {
     private String responseText;
